@@ -70,22 +70,17 @@ class Router(Blueprint):
             try:
                 controller_name, action_name = controller_action.split("@")
             except ValueError:
-                return Response.error("Invalid format for controller_action. Use 'Controller@action'", 500)
+                return Response.error("Invalid format for controller_action. Use 'Controller@action'.", 500)
             
-            try:
-                controller = self._load_controller(controller_name)
-            except HTTPException as e:
-                code = e.response
-                message = e.description
-                return Response.render(f"exceptions/{code}.html", code=code, message=message)
+            controller = self._load_controller(controller_name)
 
             if not controller:
-                return Response.error(f"🚨 Controller {controller_name} not found", 500)
+                return Response.error(f"🚨 Controller {controller_name} not found.", 500)
 
             try:
                 action = getattr(controller, action_name, None)
                 if not action:
-                    return Response.error(f"⚠️ Method {action_name} not found in controller {controller_name}", 500)
+                    return Response.error(f"⚠️ Method {action_name} not found in controller {controller_name}.", 500)
 
                 request = Request()
                 response = Response()
@@ -110,15 +105,30 @@ class Router(Blueprint):
             module_path = "app.http.controllers"
             if self._path.strip("/"):
                 module_path += f".{self._path.strip('/').replace('/', '.')}"
+
             module_path += f".{controller_file}"
 
+            # Attempt to import the module
             module = __import__(module_path, fromlist=[controller_name])
             controller_class = getattr(module, controller_name)
             logging.info(f"✅ Controller '{controller_name}' successfully loaded.")
             return controller_class()
-        except (ModuleNotFoundError, AttributeError):
-            logging.error(f"❌ Issues loading '{controller_name}' from '{module_path.replace('.', '/')}.py'")
+
+        except ModuleNotFoundError as e:
+            logging.error(f"❌ The '__init__.py' file is required in the 'app' folder.")
             raise HTTPException(code=404, title="Not Found", description="The requested resource was not found on the server.")
+        except AttributeError as e:
+            logging.error(f"❌ Controller '{controller_name}' not found in '{module_path.replace('.', '/')}'.")
+            raise HTTPException(code=404, title="Not Found", description=f"Controller '{controller_name}' not found in the module.")
+        except FileNotFoundError as e:
+            logging.error(f"❌ File not found: {str(e)}.")
+            raise HTTPException(code=404, title="Not Found", description="The requested file was not found.")
+        except ImportError as e:
+            logging.error(f"❌ Failed to import the module '{module_path}'.")
+            raise HTTPException(code=500, title="Internal Server Error", description="There was an error loading the module.")
+        except Exception as e:
+            logging.error(f"❌ An unexpected error occurred: {str(e)}")
+            raise HTTPException(code=500, title="Internal Server Error", description="An unexpected error occurred on the server.")
 
     def __camel_to_snake(self, name: str) -> str:
         """
@@ -144,14 +154,14 @@ class Router(Blueprint):
         if not isinstance(path, str):
             self.__raise_validation_error("The 'path' of the Blueprint must be a string.")
         if not path.startswith("/"):
-            self.__raise_validation_error("The 'path' of the Blueprint must start with '/'")
+            self.__raise_validation_error("The 'path' of the Blueprint must start with '/'.")
         
         normalized_path = path.strip("/").lower()
         controllers_dir = os.path.join("app", "http", "controllers")
         expected_dir = os.path.join(controllers_dir, normalized_path)
         
         if not os.path.exists(expected_dir):
-            self.__raise_validation_error(f"The folder 'app/http/controllers/{normalized_path}' does not exist")
+            self.__raise_validation_error(f"The folder 'app/http/controllers/{normalized_path}' does not exist.")
         
         return f"/{normalized_path}" if normalized_path else "/"
 
@@ -159,7 +169,7 @@ class Router(Blueprint):
         if not isinstance(prefix, str):
             self.__raise_validation_error("The 'prefix' of the Blueprint must be a string.")
         if prefix and not prefix.startswith("/"):
-            self.__raise_validation_error("The 'prefix' of the Blueprint must start with '/'")
+            self.__raise_validation_error("The 'prefix' of the Blueprint must start with '/'.")
         return prefix if prefix else "/"
 
     def __raise_validation_error(self, message: str):

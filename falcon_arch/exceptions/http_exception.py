@@ -11,3 +11,19 @@ class HTTPException(Exception):
         self.title = title
         self.description = description
         super().__init__(f"{code} - {title}: {description}")
+
+    def __str__(self):
+        """
+        Returns a string representation of the custom exception.
+        """
+        return f"HTTP Exception: {self.code} - {self.title}: {self.description}"
+
+    def get_response(self):
+        """
+        Returns a dictionary with the structured HTTP response.
+        """
+        return {
+            "code": self.code,
+            "title": self.title,
+            "description": self.description
+        }
