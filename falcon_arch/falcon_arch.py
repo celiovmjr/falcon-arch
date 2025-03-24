@@ -3,6 +3,7 @@ import importlib.util
 import logging
 from flask import Flask
 from waitress import serve
+from werkzeug.serving import run_simple
 from .exceptions.http_exception_helper import HTTPExceptionHelper
 from .helps._error import render
 from .http.request import Request
@@ -38,7 +39,7 @@ class FalconArch(Flask):
                 description=http_error.description
             )
         
-        logging.warning(f"📢 To create a custom error page, create the file '{self.template_folder}/exceptions/{http_error.code}.html'")
+        logging.warning(f"📢 To create a custom error page, create the file '{self.template_folder}/exceptions/{http_error.code}.html'.")
         return Response.html(
             content=render(
                 code=http_error.code,
@@ -70,25 +71,28 @@ class FalconArch(Flask):
                                 if isinstance(attr_value, Router):
                                     self.__register(attr_value)
                                     loaded_routes += 1  # Increment route counter
-                                    logging.info(f"✅ Route '{attr_name}' loaded from {module_name}")
+                                    logging.info(f"✅ Route '{attr_name}' loaded from '{module_name}'.")
                         else:
                             logging.warning(f"⚠️ Invalid module: {module_name}")
 
-                    except Exception as e:
+                    except Exception:
                         logging.error(f"❌ Error importing routes from /{module_name.replace('.', '/')}.py")
 
         if loaded_routes == 0:
-            logging.error(f"❌ No routes imported from '/{self.__routes_folder.strip('/')}'")
+            logging.error(f"❌ No routes imported from '/{self.__routes_folder.strip('/')}'.")
 
     def __register(self, blueprint):
         """Method to centrally register blueprints"""
-        logging.info(f"✅ Registering Blueprint: {blueprint.name} with prefix '{blueprint.url_prefix or '/'}'")
+        logging.info(f"✅ Registering Blueprint: {blueprint.name} with prefix '{blueprint.url_prefix or '/'}'.")
         self.register_blueprint(blueprint)
     
     def run(self, host="0.0.0.0", port=80, threads=4, _quiet=False):
         try:
-            serve(self, host=host, port=port, threads=threads, _quiet=_quiet)
+            if not _quiet:
+                run_simple(hostname=host, port=port, application=self, use_reloader=True)
+            else:
+                serve(self, host=host, port=port, threads=threads, _quiet=_quiet)
         except PermissionError:
             logging.error(f"❌ Permission denied! Run with {"Administrator" if os.name == "nt" else "sudo"} or choose a port above 1024.")
-        except Exception as e:
-            logging.exception("❌ Unexpected error starting the server:")
+        except Exception:
+            logging.exception("❌ Unexpected error starting the server.")
