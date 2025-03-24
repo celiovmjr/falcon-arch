@@ -4,6 +4,7 @@ import re
 import logging
 from flask import Blueprint
 from .exceptions.http_exception import HTTPException
+from .helps._error import render
 from .http.request import Request
 from .http.response import Response
 
@@ -59,28 +60,43 @@ class Router(Blueprint):
     def __add_route(self, route: str, controller_action: str, methods: list):
         """
         Adds a route to the blueprint, associating it with a specific controller and action.
-        
-        :param route: Route to be registered (e.g., "list" or "detail/<id>").
-        :param controller_action: String in the format "ControllerName@action" indicating which
-                                  controller and method will be called.
-        :param methods: List of allowed HTTP methods.
-        :return: The handler function that processes the request.
         """
         def handler(**kwargs):
             try:
                 controller_name, action_name = controller_action.split("@")
             except ValueError:
-                return Response.error("Invalid format for controller_action. Use 'Controller@action'.", 500)
+                return Response.html(
+                    content=render(
+                        code=500,
+                        title="Invalid Format",
+                        description="🚨 The route format is invalid. Please use 'Controller@action'."
+                    ),
+                    status=500
+                )
             
             controller = self._load_controller(controller_name)
 
             if not controller:
-                return Response.error(f"🚨 Controller {controller_name} not found.", 500)
+                return Response.html(
+                    content=render(
+                        code=404,
+                        title="Not Found",
+                        description=f"🚨 Controller {controller_name} not found."
+                    ),
+                    status=404
+                )
 
             try:
                 action = getattr(controller, action_name, None)
                 if not action:
-                    return Response.error(f"⚠️ Method {action_name} not found in controller {controller_name}.", 500)
+                    return Response.html(
+                        content=render(
+                            code=501,
+                            title="Not Implemented",
+                            description=f"⚠️ Method '{action_name}' is not implemented in controller '{controller_name}'."
+                        ),
+                        status=501
+                    )
 
                 request = Request()
                 response = Response()
@@ -96,9 +112,6 @@ class Router(Blueprint):
     def _load_controller(self, controller_name: str):
         """
         Dynamically loads the controller from the given name.
-        
-        :param controller_name: Controller name (in CamelCase).
-        :return: Controller instance or an error response if not found.
         """
         controller_file = f"{self.__camel_to_snake(controller_name)}_controller"
         try:
@@ -108,27 +121,50 @@ class Router(Blueprint):
 
             module_path += f".{controller_file}"
 
-            # Attempt to import the module
             module = __import__(module_path, fromlist=[controller_name])
             controller_class = getattr(module, controller_name)
             logging.info(f"✅ Controller '{controller_name}' successfully loaded.")
             return controller_class()
 
-        except ModuleNotFoundError as e:
-            logging.error(f"❌ The '__init__.py' file is required in the 'app' folder.")
-            raise HTTPException(code=404, title="Not Found", description="The requested resource was not found on the server.")
-        except AttributeError as e:
-            logging.error(f"❌ Controller '{controller_name}' not found in '{module_path.replace('.', '/')}'.")
-            raise HTTPException(code=404, title="Not Found", description=f"Controller '{controller_name}' not found in the module.")
+        except ModuleNotFoundError:
+            logging.error(f"❌ The specified module '{module_path.replace('.', '/')}.py' could not be found.")
+            raise HTTPException(
+                code=404, 
+                title="Resource Not Found", 
+                description="🚨 The requested module does not exist on the server. Please verify the module path."
+            )
+
+        except AttributeError:
+            logging.error(f"❌ The controller '{controller_name}' was not found in the module '{module_path.replace('.', '/')}'.")
+            raise HTTPException(
+                code=404, 
+                title="Controller Not Found", 
+                description=f"🚨 The specified controller '{controller_name}' could not be located within the module '{module_path}'."
+            )
+
         except FileNotFoundError as e:
-            logging.error(f"❌ File not found: {str(e)}.")
-            raise HTTPException(code=404, title="Not Found", description="The requested file was not found.")
+            logging.error(f"❌ The requested file could not be located: {str(e)}.")
+            raise HTTPException(
+                code=404, 
+                title="File Not Found", 
+                description="📂 The requested file is missing or unavailable. Please check the file path."
+            )
+
         except ImportError as e:
-            logging.error(f"❌ Failed to import the module '{module_path}'.")
-            raise HTTPException(code=500, title="Internal Server Error", description="There was an error loading the module.")
+            logging.error(f"❌ Failed to import module '{module_path}': {str(e)}.")
+            raise HTTPException(
+                code=500, 
+                title="Module Import Error", 
+                description="⚠️ An error occurred while importing the module. Please ensure it is correctly installed and accessible."
+            )
+
         except Exception as e:
-            logging.error(f"❌ An unexpected error occurred: {str(e)}")
-            raise HTTPException(code=500, title="Internal Server Error", description="An unexpected error occurred on the server.")
+            logging.error(f"❌ An unexpected server error occurred: {str(e)}")
+            raise HTTPException(
+                code=500, 
+                title="Internal Server Error", 
+                description="🚨 An unexpected error occurred on the server. Please try again later or contact support."
+            )
 
     def __camel_to_snake(self, name: str) -> str:
         """
@@ -174,4 +210,4 @@ class Router(Blueprint):
 
     def __raise_validation_error(self, message: str):
         logging.error(f"❌ {message}")
-        raise ValueError(message)
+        raise ValueError(f"❌ {message}")

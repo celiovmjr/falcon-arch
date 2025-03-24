@@ -93,6 +93,6 @@ class FalconArch(Flask):
             else:
                 serve(self, host=host, port=port, threads=threads, _quiet=_quiet)
         except PermissionError:
-            logging.error(f"❌ Permission denied! Run with {"Administrator" if os.name == "nt" else "sudo"} or choose a port above 1024.")
+            logging.error(f"❌ Permission denied! Run with {'Administrator' if os.name == 'nt' else 'sudo'} or choose a port above 1024.")
         except Exception:
             logging.exception("❌ Unexpected error starting the server.")
