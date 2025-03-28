@@ -1,8 +1,8 @@
 import os
 import uuid
 import re
-import logging
 from flask import Blueprint
+from .logger import Logger
 from .exceptions.http_exception import HTTPException
 from .helps._error import render
 from .http.request import Request
@@ -102,10 +102,10 @@ class Router(Blueprint):
                 response = Response()
                 return action(request, response)
             except Exception as e:
-                logging.error(f"❌ Error executing {controller_name}@{action_name}: {e}")
+                Logger.error(f"Error executing {controller_name}@{action_name}: {e}")
                 return Response.error(f"❌ Error executing method {action_name}", 500)
 
-        logging.info(f"✅ Registering '{controller_action}' on route '{route}'")
+        Logger.debug(f"Registering '{controller_action}' on route '{route}'")
         self.add_url_rule(route, endpoint=controller_action, view_func=handler, methods=methods)
         return handler
 
@@ -123,11 +123,11 @@ class Router(Blueprint):
 
             module = __import__(module_path, fromlist=[controller_name])
             controller_class = getattr(module, controller_name)
-            logging.info(f"✅ Controller '{controller_name}' successfully loaded.")
+            Logger.debug(f"Controller '{controller_name}' successfully loaded.")
             return controller_class()
 
-        except ModuleNotFoundError:
-            logging.error(f"❌ The specified module '{module_path.replace('.', '/')}.py' could not be found.")
+        except ModuleNotFoundError as e:
+            Logger.error(e)
             raise HTTPException(
                 code=404, 
                 title="Resource Not Found", 
@@ -135,7 +135,7 @@ class Router(Blueprint):
             )
 
         except AttributeError:
-            logging.error(f"❌ The controller '{controller_name}' was not found in the module '{module_path.replace('.', '/')}'.")
+            Logger.error(f"The controller '{controller_name}' was not found in the module '{module_path.replace('.', '/')}'.")
             raise HTTPException(
                 code=404, 
                 title="Controller Not Found", 
@@ -143,7 +143,7 @@ class Router(Blueprint):
             )
 
         except FileNotFoundError as e:
-            logging.error(f"❌ The requested file could not be located: {str(e)}.")
+            Logger.error(f"The requested file could not be located: {str(e)}.")
             raise HTTPException(
                 code=404, 
                 title="File Not Found", 
@@ -151,7 +151,7 @@ class Router(Blueprint):
             )
 
         except ImportError as e:
-            logging.error(f"❌ Failed to import module '{module_path}': {str(e)}.")
+            Logger.error(f"Failed to import module '{module_path}': {str(e)}.")
             raise HTTPException(
                 code=500, 
                 title="Module Import Error", 
@@ -159,7 +159,7 @@ class Router(Blueprint):
             )
 
         except Exception as e:
-            logging.error(f"❌ An unexpected server error occurred: {str(e)}")
+            Logger.error(f"An unexpected server error occurred: {str(e)}")
             raise HTTPException(
                 code=500, 
                 title="Internal Server Error", 
@@ -209,5 +209,5 @@ class Router(Blueprint):
         return prefix if prefix else "/"
 
     def __raise_validation_error(self, message: str):
-        logging.error(f"❌ {message}")
+        Logger.error(f"{message}")
         raise ValueError(f"❌ {message}")

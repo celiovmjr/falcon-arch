@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="falcon-arch",
-    version="0.0.6",
+    version="0.1.0",
     description="FalconArch is a lightweight and modular library that provides a base structure for developing applications with Flask.",
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
@@ -17,7 +17,7 @@ setup(
     ],
     python_requires='>=3.6',
     install_requires=[
-        'Flask>=3.0.0',
+        'Flask>=3.1.0',
         'waitress>=3.0.2',
     ],
 )

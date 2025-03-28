@@ -1,9 +1,9 @@
 import os
 import importlib.util
-import logging
 from flask import Flask
 from waitress import serve
 from werkzeug.serving import run_simple
+from .logger import Logger
 from .exceptions.http_exception_helper import HTTPExceptionHelper
 from .helps._error import render
 from .http.request import Request
@@ -25,7 +25,7 @@ class FalconArch(Flask):
 
     def __handle_errors(self, error: Exception):
         """Captures errors and returns custom responses."""
-        logging.error(f"❌ The route {Request.path()} does not exist")
+        Logger.error(f"The route '{Request.path()}' does not exist.")
         http_error = HTTPExceptionHelper.handle(getattr(error, "code", 500))
 
         if self.__api_prefix in Request.path():
@@ -39,7 +39,7 @@ class FalconArch(Flask):
                 description=http_error.description
             )
         
-        logging.warning(f"📢 To create a custom error page, create the file '{self.template_folder}/exceptions/{http_error.code}.html'.")
+        Logger.warning(f"To create a custom error page, create the file '{self.template_folder}/exceptions/{http_error.code}.html'.")
         return Response.html(
             content=render(
                 code=http_error.code,
@@ -71,19 +71,19 @@ class FalconArch(Flask):
                                 if isinstance(attr_value, Router):
                                     self.__register(attr_value)
                                     loaded_routes += 1  # Increment route counter
-                                    logging.info(f"✅ Route '{attr_name}' loaded from '{module_name}'.")
+                                    Logger.debug(f"Route '{attr_name}' loaded from '{module_name}'.")
                         else:
-                            logging.warning(f"⚠️ Invalid module: {module_name}")
+                            Logger.warning(f"Invalid module: {module_name}")
 
                     except Exception:
-                        logging.error(f"❌ Error importing routes from /{module_name.replace('.', '/')}.py")
+                        Logger.error(f"Error importing routes from '/{module_name.replace('.', '/')}.py'.")
 
         if loaded_routes == 0:
-            logging.error(f"❌ No routes imported from '/{self.__routes_folder.strip('/')}'.")
+            Logger.error(f"No routes imported from '/{self.__routes_folder.strip('/')}'.")
 
     def __register(self, blueprint):
         """Method to centrally register blueprints"""
-        logging.info(f"✅ Registering Blueprint: {blueprint.name} with prefix '{blueprint.url_prefix or '/'}'.")
+        Logger.debug(f"Registering Blueprint: {blueprint.name} with prefix '{blueprint.url_prefix or '/'}'.")
         self.register_blueprint(blueprint)
     
     def run(self, host="0.0.0.0", port=80, threads=4, _quiet=False):
@@ -93,6 +93,6 @@ class FalconArch(Flask):
             else:
                 serve(self, host=host, port=port, threads=threads, _quiet=_quiet)
         except PermissionError:
-            logging.error(f"❌ Permission denied! Run with {'Administrator' if os.name == 'nt' else 'sudo'} or choose a port above 1024.")
+            Logger.error(f"Permission denied! Run with {'Administrator' if os.name == 'nt' else 'sudo'} or choose a port above 1024.")
         except Exception:
-            logging.exception("❌ Unexpected error starting the server.")
+            Logger.exception("Unexpected error starting the server.")
